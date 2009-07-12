@@ -1,0 +1,867 @@
+Index: src/tigase/gwt/components/roster/client/Group.java
+===================================================================
+--- src/tigase/gwt/components/roster/client/Group.java	(revision 46)
++++ src/tigase/gwt/components/roster/client/Group.java	(working copy)
+@@ -206,6 +206,29 @@
+ 		}
+ 		setVisible(this.visibleIfEmpty || this.visibleContacts > 0);
+ 	}
++	
++	public void updateGroupRosterItem(final JID jid, final String displayedName) {
++		Item ri = this.buddies.get(jid);
++
++		if (ri == null) {
++			ri = new Item(this, jid, displayedName, true);
++			ri.setVisible(true);
++			this.visibleContacts++;
++			int index = 0;
++			for (int i = 0; i < this.elements.getWidgetCount(); i++) {
++				Widget w = this.elements.getWidget(i);
++				if (w instanceof Item) {
++					if (this.roster.getContactComparator().compare((Item) w, ri) < 0) {
++						index = i + 1;
++					}
++				}
++			}
++			elements.insert(ri, index);
++			this.buddies.put(jid, ri);
++		}
++		
++		setVisible(this.visibleIfEmpty || this.visibleContacts > 0);
++	}
+ 
+ 	public void updateRosterItem(final JID jid, final String displayedName) {
+ 		Item ri = this.buddies.get(jid);
+Index: src/tigase/gwt/components/roster/client/Item.java
+===================================================================
+--- src/tigase/gwt/components/roster/client/Item.java	(revision 46)
++++ src/tigase/gwt/components/roster/client/Item.java	(working copy)
+@@ -11,6 +11,8 @@
+ public class Item extends SimplePanel {
+ 
+ 	private Object data;
++	
++	private final boolean chatRoom;
+ 
+ 	private final Group group;
+ 
+@@ -26,6 +28,21 @@
+ 		super();
+ 		this.group = group;
+ 		this.jid = jid;
++		this.chatRoom = false;
++		sinkEvents(Event.ONMOUSEDOWN);
++		sinkEvents(Event.ONDBLCLICK);
++
++		label = new Label(displayedName);
++		add(label);
++		setStyleName("buddy");
++		Group.disableContextMenu(this.getElement());
++	}
++
++	Item(Group group, final JID jid, final String displayedName, final boolean chatRoom) {
++		super();
++		this.group = group;
++		this.jid = jid;
++		this.chatRoom = chatRoom;
+ 		sinkEvents(Event.ONMOUSEDOWN);
+ 		sinkEvents(Event.ONDBLCLICK);
+ 
+@@ -39,6 +56,10 @@
+ 	public <T extends Object> T getData() {
+ 		return (T) data;
+ 	}
++	
++	public boolean isChatRoom() {
++		return chatRoom;
++	}
+ 
+ 	public JID getJID() {
+ 		return jid;
+Index: src/tigase/gwt/components/roster/client/Roster.java
+===================================================================
+--- src/tigase/gwt/components/roster/client/Roster.java	(revision 46)
++++ src/tigase/gwt/components/roster/client/Roster.java	(working copy)
+@@ -13,6 +13,7 @@
+ import tigase.jaxmpp.core.client.stanzas.Presence;
+ import tigase.jaxmpp.core.client.stanzas.Presence.Show;
+ import tigase.jaxmpp.core.client.xmpp.roster.RosterItem;
++import tigase.messenger.client.Tigase_messenger;
+ 
+ import com.google.gwt.user.client.Event;
+ import com.google.gwt.user.client.ui.Composite;
+@@ -21,6 +22,8 @@
+ 
+ public class Roster extends Composite {
+ 
++	public boolean showChatRooms = false;
++
+ 	public static interface GroupShowOfflineCallback {
+ 
+ 		boolean isGroupShowsOffline(String groupName);
+@@ -32,7 +35,8 @@
+ 			return RosterPresence.ERROR;
+ 		} else if (pi.getType() == Presence.Type.unavailable || pi.getType() == Presence.Type.subscribe) {
+ 			return RosterPresence.OFFLINE;
+-		} else if (pi.getType() == Presence.Type.unsubscribed || pi.getType() == Presence.Type.unsubscribe) {
++		} else if (pi.getType() == Presence.Type.unsubscribed
++				|| pi.getType() == Presence.Type.unsubscribe) {
+ 			return RosterPresence.NOAUTH;
+ 		} else if (pi.getShow() == Show.notSpecified) {
+ 			return RosterPresence.ONLINE;
+@@ -266,6 +270,7 @@
+ 		this.selectedGroup = null;
+ 		this.selectedJID = null;
+ 		this.selectedPanel = null;
++		addChatRooms();
+ 	}
+ 
+ 	void select(Widget panel, Group group) {
+@@ -316,7 +321,8 @@
+ 		this.ownJid = ownJid;
+ 	}
+ 
+-	protected void update(final JID jid, final RosterPresence rp, final String displayedName, final List<String> groups, final boolean virtualContact) {
++	protected void update(final JID jid, final RosterPresence rp, final String displayedName,
++			final List<String> groups, final boolean virtualContact) {
+ 		Set<Group> buddyGruops = this.buddies.get(jid);
+ 		if (buddyGruops == null) {
+ 			buddyGruops = new HashSet<Group>();
+@@ -360,11 +366,14 @@
+ 			}
+ 		}
+ 
++		addChatRooms();
++		
+ 		fireAfterRosterChange();
+ 	}
+ 
+ 	public void updatedRosterItem(RosterItem item) {
+-		if (!showTransportAsContacts && item.getJid() != null && JID.fromString(item.getJid()).getNode() == null)
++		if (!showTransportAsContacts && item.getJid() != null
++				&& JID.fromString(item.getJid()).getNode() == null)
+ 			return;
+ 		List<String> groups = Arrays.asList(item.getGroups());
+ 		if (groups.size() == 0) {
+@@ -385,7 +394,8 @@
+ 	public void updatePresence(Presence presenceItem) {
+ 		if (presenceItem == null)
+ 			return;
+-		if (!showTransportAsContacts && presenceItem.getFrom() != null && presenceItem.getFrom().getNode() == null)
++		if (!showTransportAsContacts && presenceItem.getFrom() != null
++				&& presenceItem.getFrom().getNode() == null)
+ 			return;
+ 		RosterPresence p = presenceCallback.getRosterPresence(presenceItem.getFrom());
+ 		JID jid = presenceItem.getFrom().getBareJID();
+@@ -400,7 +410,8 @@
+ 			}
+ 			List<String> groups = new ArrayList<String>();
+ 			groups.add("Not in roster");
+-			update(presenceItem.getFrom(), rosterPresenceFromPresence(presenceItem), displayedName, groups, true);
++			update(presenceItem.getFrom(), rosterPresenceFromPresence(presenceItem), displayedName,
++					groups, true);
+ 
+ 		} else
+ 			for (Group group : buddyGruops) {
+@@ -409,4 +420,36 @@
+ 		fireAfterRosterChange();
+ 	}
+ 
++	/**
++	 * Add configured chat rooms in the buddy list
++	 */
++	public void addChatRooms() {
++		if (showChatRooms) {
++			// Show rooms group
++			JID rooms[] = Tigase_messenger.config().getRoomList();
++			if (rooms != null && rooms.length > 0) {
++				String groupName = "Salons de discussion";
++				Group group = this.groups.get(groupName);
++				if (group == null) {
++					group = new Group(this, groupName);
++					group.setStaticGroup(true);
++					this.groups.put(groupName, group);
++					int index = 0;
++					for (int i = 0; i < this.panel.getWidgetCount(); i++) {
++						Widget w = this.panel.getWidget(i);
++						if (w instanceof Group) {
++							if (this.groupComparator.compare((Group) w, group) < 0) {
++								index = i + 1;
++							}
++						}
++					}
++					panel.insert(group, index);
++					for (JID room : rooms) {
++						group.updateGroupRosterItem(room, room.getNode());
++					}
++				}
++			}
++		}
++	}
++
+ }
+Index: src/tigase/jaxmpp/core/client/Session.java
+===================================================================
+--- src/tigase/jaxmpp/core/client/Session.java	(revision 116)
++++ src/tigase/jaxmpp/core/client/Session.java	(working copy)
+@@ -48,6 +48,7 @@
+ import tigase.jaxmpp.core.client.xmpp.roster.RosterPlugin;
+ import tigase.jaxmpp.core.client.xmpp.sasl.SaslAuthPlugin;
+ import tigase.jaxmpp.core.client.xmpp.sasl.SaslEvent;
++import tigase.jaxmpp.core.client.xmpp.session.GetSessionPlugin;
+ import tigase.jaxmpp.core.client.xmpp.xeps.entityCapabilities.EntityCapabilitiesPlugin;
+ import tigase.jaxmpp.core.client.xmpp.xeps.jabberSearch.JabberSearchPlugin;
+ import tigase.jaxmpp.core.client.xmpp.xeps.messageArchiving.MessageArchivingPlugin;
+@@ -73,6 +74,8 @@
+ 		featuresReceived,
+ 		initialPresenceSent,
+ 		none(featuresReceived),
++		getSessionStarted,
++		getSessionFinised,
+ 		rosterGettingFinished,
+ 		rosterGettingStarted,
+ 		startTlsAllowed;
+@@ -167,6 +170,8 @@
+ 	private Map<String, ResponseHandler> responseHandlers = new HashMap<String, ResponseHandler>();
+ 
+ 	protected RosterPlugin rosterPlugin;
++	
++	protected GetSessionPlugin getSessionPlugin;
+ 
+ 	protected SaslAuthPlugin saslPlugin;
+ 
+@@ -222,6 +227,18 @@
+ 				setNewSessionStage(SessionStage.bindStarted);
+ 			}
+ 		});
++		eventsManager.addListener(Events.sessionStarted, new Listener<Event>() {
++
++			public void handleEvent(Event event) {
++				setNewSessionStage(SessionStage.getSessionFinised);
++			}
++		});
++		eventsManager.addListener(Events.sessionStart, new Listener<Event>() {
++
++			public void handleEvent(Event event) {
++				setNewSessionStage(SessionStage.getSessionStarted);
++			}
++		});
+ 		eventsManager.addListener(Events.rosterRequestSent, new Listener<Event>() {
+ 
+ 			public void handleEvent(Event event) {
+@@ -314,6 +331,9 @@
+ 					bindPlugin.bind();
+ 					break;
+ 				case bindFinished:
++					getSessionPlugin.getSession();
++					//break;
++				case getSessionFinised:
+ 					rosterPlugin.getRoster();
+ 					break;
+ 				case rosterGettingFinished:
+@@ -535,6 +555,7 @@
+ 		bindPlugin = add(new ResourceBindPlugin(this, user));
+ 		presencePlugin = add(new PresencePlugin(this));
+ 		rosterPlugin = add(new RosterPlugin(this));
++		getSessionPlugin = add(new GetSessionPlugin(this));
+ 		vCardPlugin = add(new VCardPlugin(this));
+ 		privateStoragePlugin = add(new PrivateStoragePlugin(this));
+ 		messageArchivingPlugin = add(new MessageArchivingPlugin(this, getXmppDateTimeTools()));
+Index: src/tigase/jaxmpp/core/client/events/Events.java
+===================================================================
+--- src/tigase/jaxmpp/core/client/events/Events.java	(revision 116)
++++ src/tigase/jaxmpp/core/client/events/Events.java	(working copy)
+@@ -39,6 +39,8 @@
+ 	resourceBinded,
+ 	resourceBindingError,
+ 	resourceBindStart,
++	sessionStart,
++	sessionStarted,
+ 	rosterItemAdded,
+ 	rosterItemRemoved,
+ 	rosterItemUpdated,
+Index: src/tigase/jaxmpp/core/client/xmpp/roster/RosterPlugin.java
+===================================================================
+--- src/tigase/jaxmpp/core/client/xmpp/roster/RosterPlugin.java	(revision 116)
++++ src/tigase/jaxmpp/core/client/xmpp/roster/RosterPlugin.java	(working copy)
+@@ -196,6 +196,7 @@
+ 	}
+ 
+ 	public void getRoster() {
++		
+ 		IQ iq = new IQ(IQ.Type.get);
+ 		iq.setAttribute("id", "" + Session.nextId());
+ 
+Index: src/tigase/jaxmpp/core/client/xmpp/session/GetSessionPlugin.java
+===================================================================
+--- src/tigase/jaxmpp/core/client/xmpp/session/GetSessionPlugin.java	(revision 0)
++++ src/tigase/jaxmpp/core/client/xmpp/session/GetSessionPlugin.java	(revision 0)
+@@ -0,0 +1,80 @@
++package tigase.jaxmpp.core.client.xmpp.session;
++
++import tigase.jaxmpp.core.client.Plugin;
++import tigase.jaxmpp.core.client.PluginState;
++import tigase.jaxmpp.core.client.ResponseHandler;
++import tigase.jaxmpp.core.client.Session;
++import tigase.jaxmpp.core.client.ResponseHandler.ErrorType;
++import tigase.jaxmpp.core.client.criteria.Criteria;
++import tigase.jaxmpp.core.client.events.Event;
++import tigase.jaxmpp.core.client.events.Events;
++import tigase.jaxmpp.core.client.packets.Packet;
++import tigase.jaxmpp.core.client.stanzas.IQ;
++import tigase.jaxmpp.core.client.xmpp.ErrorCondition;
++
++public class GetSessionPlugin implements Plugin {
++
++	private Session session;
++	protected boolean sessionReceived = false;
++	private PluginState stage = PluginState.NONE;
++
++	public GetSessionPlugin(Session session) {
++		this.session = session;
++	}
++
++	public Criteria getCriteria() {
++		// TODO Auto-generated method stub
++		return null;
++	}
++
++	public String[] getFeatures() {
++		// TODO Auto-generated method stub
++		return null;
++	}
++
++	public PluginState getStatus() {
++		// TODO Auto-generated method stub
++		return stage;
++	}
++
++	public boolean process(Packet stanza) {
++		// TODO Auto-generated method stub
++		stage = PluginState.SUCCESS;
++		sessionReceived = true;
++		session.getEventsManager().fireEvent(Events.sessionStarted, new Event() {
++		});
++		return true;
++	}
++
++	public void reset() {
++		// TODO Auto-generated method stub
++
++	}
++
++	public void getSession() {
++		stage = PluginState.IN_PROGRESS;
++
++		IQ iq = new IQ(IQ.Type.set);
++		iq.setAttribute("id", "" + Session.nextId());
++		iq.setAttribute("xmlns", "jabber:client");
++
++		Packet get = iq.addChild("session", "urn:ietf:params:xml:ns:xmpp-session");
++
++		session.addResponseHandler(iq, new ResponseHandler() {
++
++			public void onError(IQ iq, ErrorType errorType, ErrorCondition errorCondition, String text) {
++				sessionReceived = true;
++				stage = PluginState.ERROR;
++			}
++
++			public void onResult(IQ iq) {
++				stage = PluginState.SUCCESS;
++				sessionReceived = true;
++			}
++		});
++		session.getEventsManager().fireEvent(Events.sessionStart, new Event() {
++		});
++		
++	}
++
++}
+Index: src/tigase/messenger/client/Config.java
+===================================================================
+--- src/tigase/messenger/client/Config.java	(revision 46)
++++ src/tigase/messenger/client/Config.java	(working copy)
+@@ -71,6 +71,24 @@
+ 			return null;
+ 	}
+ 
++	public JID[] getRoomList() {
++		if (c != null && c.keySet().contains("rooms")) {
++			String x = c.get("rooms");
++			String[] source = x.split(",");
++			List<JID> result = new ArrayList<JID>();
++			if (source != null) {
++				for (int i = 0; i < source.length; i++) {
++					JID jid = JID.fromString(source[i]);
++					if (jid.isValid())
++						result.add(jid);
++				}
++
++			}
++			return result.size() == 0 ? null : result.toArray(new JID[] {});
++		} else
++			return null;
++	}
++	
+ 	public String getHTTPBase() {
+ 		if (c != null && c.keySet().contains("httpBase"))
+ 			return c.get("httpBase");
+Index: src/tigase/messenger/client/DebugTab.java
+===================================================================
+--- src/tigase/messenger/client/DebugTab.java	(revision 46)
++++ src/tigase/messenger/client/DebugTab.java	(working copy)
+@@ -36,7 +36,7 @@
+ 
+ 	private final Bosh2Connector connector;
+ 
+-	private DateTimeFormat dtf = DateTimeFormat.getFormat("HH:mm:ss");
++	private DateTimeFormat dtf = DateTimeFormat.getFormat("HH:mm:ss.SSS");
+ 
+ 	private final TextArea message = new TextArea();
+ 
+Index: src/tigase/messenger/client/TabbedViewport.java
+===================================================================
+--- src/tigase/messenger/client/TabbedViewport.java	(revision 46)
++++ src/tigase/messenger/client/TabbedViewport.java	(working copy)
+@@ -119,8 +119,10 @@
+ 	public TabbedViewport(Roster rosterComponent, ChatManager<ChatTab> chatManager) {
+ 		tabPanel.setTabScroll(true);
+ 		sound_sent = soundController.createSound(Sound.MIME_TYPE_AUDIO_MPEG, "sounds/sent.mp3");
+-		sound_message_in = soundController.createSound(Sound.MIME_TYPE_AUDIO_MPEG, "sounds/message_in.mp3");
+-		sound_message_new = soundController.createSound(Sound.MIME_TYPE_AUDIO_MPEG, "sounds/message_new.mp3");
++		sound_message_in = soundController.createSound(Sound.MIME_TYPE_AUDIO_MPEG,
++				"sounds/message_in.mp3");
++		sound_message_new = soundController.createSound(Sound.MIME_TYPE_AUDIO_MPEG,
++				"sounds/message_new.mp3");
+ 
+ 		Tigase_messenger.eventsManager().addListener(ChatTab.Events.MESSAGE_SENT,
+ 				new tigase.jaxmpp.core.client.events.Listener<ChatTabEvent>() {
+@@ -134,7 +136,9 @@
+ 					}
+ 				});
+ 
++		rosterComponent.showChatRooms = true;
+ 		this.rosterComponent = rosterComponent;
++		this.rosterComponent.addChatRooms();
+ 		this.chatManager = chatManager;
+ 		this.chatManager.addListener(this);
+ 		this.statusToolItem.addListener(new ChangeStatusListener() {
+@@ -156,7 +160,8 @@
+ 				}
+ 			}
+ 		});
+-		Tigase_messenger.session().addEventListener(tigase.jaxmpp.core.client.events.Events.groupChatMessageReceived,
++		Tigase_messenger.session().addEventListener(
++				tigase.jaxmpp.core.client.events.Events.groupChatMessageReceived,
+ 				new tigase.jaxmpp.core.client.events.Listener<GroupChatEvent>() {
+ 
+ 					public void handleEvent(GroupChatEvent event) {
+@@ -166,7 +171,8 @@
+ 						}
+ 					}
+ 				});
+-		Tigase_messenger.session().addEventListener(tigase.jaxmpp.core.client.events.Events.groupChatJoined,
++		Tigase_messenger.session().addEventListener(
++				tigase.jaxmpp.core.client.events.Events.groupChatJoined,
+ 				new tigase.jaxmpp.core.client.events.Listener<GroupChatEvent>() {
+ 
+ 					public void handleEvent(GroupChatEvent event) {
+@@ -176,7 +182,8 @@
+ 						}
+ 					}
+ 				});
+-		Tigase_messenger.session().addEventListener(tigase.jaxmpp.core.client.events.Events.groupChatJoinDeny,
++		Tigase_messenger.session().addEventListener(
++				tigase.jaxmpp.core.client.events.Events.groupChatJoinDeny,
+ 				new tigase.jaxmpp.core.client.events.Listener<GroupChatEvent>() {
+ 
+ 					public void handleEvent(GroupChatEvent event) {
+@@ -186,7 +193,8 @@
+ 						}
+ 					}
+ 				});
+-		Tigase_messenger.session().addEventListener(tigase.jaxmpp.core.client.events.Events.groupChatPresenceChange,
++		Tigase_messenger.session().addEventListener(
++				tigase.jaxmpp.core.client.events.Events.groupChatPresenceChange,
+ 				new tigase.jaxmpp.core.client.events.Listener<GroupChatEvent>() {
+ 
+ 					public void handleEvent(GroupChatEvent event) {
+@@ -200,7 +208,8 @@
+ 						}
+ 					}
+ 				});
+-		Tigase_messenger.session().addEventListener(tigase.jaxmpp.core.client.events.Events.groupChatCreated,
++		Tigase_messenger.session().addEventListener(
++				tigase.jaxmpp.core.client.events.Events.groupChatCreated,
+ 				new tigase.jaxmpp.core.client.events.Listener<GroupChatEvent>() {
+ 
+ 					public void handleEvent(GroupChatEvent event) {
+@@ -243,7 +252,8 @@
+ 			MessageBox box = new MessageBox();
+ 			box.setModal(false);
+ 			box.setTitle("Subscription request has been sent");
+-			box.setMessage("If '" + jid.toStringBare() + "' accepts this request you will know his or her status.");
++			box.setMessage("If '" + jid.toStringBare()
++					+ "' accepts this request you will know his or her status.");
+ 			box.setButtons(MessageBox.OK);
+ 			box.setIcon(MessageBox.INFO);
+ 			box.show();
+@@ -285,7 +295,18 @@
+ 	}
+ 
+ 	public void onContactDoubleClick(Item item) {
+-		Chat chat = this.chatManager.startChat(item.getJID());
++		if (item.isChatRoom()) {
++			/*
++			 * OpenGroupChatWithDialog ocw = new
++			 * OpenGroupChatWithDialog(Tigase_messenger.session() .getMucPlugin(),
++			 * item.getJID().toStringBare(), Tigase_messenger.session().getBindedJID()
++			 * .getNode(), null); ocw.show();
++			 */
++			Tigase_messenger.session().getMucPlugin().createGroupChat(item.getJID().getBareJID(),
++					Tigase_messenger.session().getBindedJID().getNode(), "");
++		} else {
++			Chat chat = this.chatManager.startChat(item.getJID());
++		}
+ 	}
+ 
+ 	public void onGroupContextMenu(Event event, Group group) {
+@@ -344,7 +365,9 @@
+ 		}
+ 		if ($unread != this.unreadMessagesCount) {
+ 			this.unreadMessagesCount = $unread;
+-			Window.setTitle((this.unreadMessagesCount == 0 ? "" : ("(" + this.unreadMessagesCount + ") ")) + "Tigase Messenger");
++			Window
++					.setTitle((this.unreadMessagesCount == 0 ? "" : ("(" + this.unreadMessagesCount + ") "))
++							+ "Tigase Messenger");
+ 		}
+ 	}
+ 
+@@ -441,7 +464,8 @@
+ 	public void onStartNewChat(Chat<ChatTab> chat) {
+ 		if (chat.getUserData() == null) {
+ 			chat.setUserNickname(Tigase_messenger.instance().getNickname());
+-			System.out.println(" New chat. Set nickname to: " + Tigase_messenger.instance().getNickname());
++			System.out
++					.println(" New chat. Set nickname to: " + Tigase_messenger.instance().getNickname());
+ 			ChatTab ct = new ChatTab(chat, Tigase_messenger.session().getRosterPlugin());
+ 			ct.addListener(Events.Close, this.chatTabCloseListener);
+ 			chat.setUserData(ct);
+@@ -500,19 +524,21 @@
+ 
+ 			@Override
+ 			public void componentSelected(MenuEvent ce) {
+-				OpenGroupChatWithDialog ocw = new OpenGroupChatWithDialog(Tigase_messenger.session().getMucPlugin());
++				OpenGroupChatWithDialog ocw = new OpenGroupChatWithDialog(Tigase_messenger.session()
++						.getMucPlugin());
+ 				ocw.show();
+ 			}
+ 		});
+ 		menu.add(joinGroupChatMenuItem);
+ 
+-		final MenuItem debugMenuItem = new MenuItem("Open debug tab", new SelectionListener<MenuEvent>() {
++		final MenuItem debugMenuItem = new MenuItem("Open debug tab",
++				new SelectionListener<MenuEvent>() {
+ 
+-			@Override
+-			public void componentSelected(MenuEvent ce) {
+-				openDebugTab();
+-			}
+-		});
++					@Override
++					public void componentSelected(MenuEvent ce) {
++						openDebugTab();
++					}
++				});
+ 		menu.add(debugMenuItem);
+ 
+ 		final CheckMenuItem playSounds = new CheckMenuItem("Play sounds");
+@@ -538,14 +564,15 @@
+ 	private Menu prepareContactMenu() {
+ 		Menu menu = new Menu();
+ 
+-		final MenuItem addContactMenuItem = new MenuItem("Add contact", new SelectionListener<MenuEvent>() {
++		final MenuItem addContactMenuItem = new MenuItem("Add contact",
++				new SelectionListener<MenuEvent>() {
+ 
+-			@Override
+-			public void componentSelected(MenuEvent ce) {
+-				AddContactDialog acd = new AddContactDialog();
+-				acd.show();
+-			}
+-		});
++					@Override
++					public void componentSelected(MenuEvent ce) {
++						AddContactDialog acd = new AddContactDialog();
++						acd.show();
++					}
++				});
+ 
+ 		final Menu subscriptionMenu = new Menu();
+ 
+@@ -557,13 +584,14 @@
+ 						allowSubscription();
+ 					}
+ 				});
+-		final MenuItem askSubscriptionMenuItem = new MenuItem("Ask to see his/her status", new SelectionListener<MenuEvent>() {
++		final MenuItem askSubscriptionMenuItem = new MenuItem("Ask to see his/her status",
++				new SelectionListener<MenuEvent>() {
+ 
+-			@Override
+-			public void componentSelected(MenuEvent ce) {
+-				askSubscription();
+-			}
+-		});
++					@Override
++					public void componentSelected(MenuEvent ce) {
++						askSubscription();
++					}
++				});
+ 		final MenuItem forbidSubscriptionMenuItem = new MenuItem("Forbid him/her to see my status",
+ 				new SelectionListener<MenuEvent>() {
+ 
+@@ -580,25 +608,27 @@
+ 		final MenuItem subscriptionMenuItem = new MenuItem("Subscription");
+ 		subscriptionMenuItem.setSubMenu(subscriptionMenu);
+ 
+-		final MenuItem removeMenuItem = new MenuItem("Remove from roster", new SelectionListener<MenuEvent>() {
++		final MenuItem removeMenuItem = new MenuItem("Remove from roster",
++				new SelectionListener<MenuEvent>() {
+ 
+-			@Override
+-			public void componentSelected(MenuEvent ce) {
+-				removeFromRoster();
+-			}
+-		});
++					@Override
++					public void componentSelected(MenuEvent ce) {
++						removeFromRoster();
++					}
++				});
+ 
+-		final MenuItem editContactMenuItem = new MenuItem("Edit contact", new SelectionListener<MenuEvent>() {
++		final MenuItem editContactMenuItem = new MenuItem("Edit contact",
++				new SelectionListener<MenuEvent>() {
+ 
+-			@Override
+-			public void componentSelected(MenuEvent ce) {
+-				final JID jid = rosterComponent.getSelectedJID();
+-				if (jid != null && Tigase_messenger.session().getRosterPlugin().isContactExists(jid)) {
+-					EditContactDialog rcd = new EditContactDialog(jid);
+-					rcd.show();
+-				}
+-			}
+-		});
++					@Override
++					public void componentSelected(MenuEvent ce) {
++						final JID jid = rosterComponent.getSelectedJID();
++						if (jid != null && Tigase_messenger.session().getRosterPlugin().isContactExists(jid)) {
++							EditContactDialog rcd = new EditContactDialog(jid);
++							rcd.show();
++						}
++					}
++				});
+ 
+ 		final MenuItem vcardMenuItem = new MenuItem("Show VCard", new SelectionListener<MenuEvent>() {
+ 			@Override
+@@ -622,14 +652,16 @@
+ 			public void handleEvent(MenuEvent be) {
+ 				boolean selected = rosterComponent.getSelectedJID() != null;
+ 				boolean active = selected
+-						&& Tigase_messenger.session().getRosterPlugin().isContactExists(rosterComponent.getSelectedJID());
++						&& Tigase_messenger.session().getRosterPlugin().isContactExists(
++								rosterComponent.getSelectedJID());
+ 				subscriptionMenuItem.setEnabled(active);
+ 				removeMenuItem.setEnabled(active);
+ 				editContactMenuItem.setEnabled(active);
+ 				vcardMenuItem.setEnabled(selected);
+ 
+ 				if (active) {
+-					RosterItem ri = Tigase_messenger.session().getRosterPlugin().getRosterItem(rosterComponent.getSelectedJID());
++					RosterItem ri = Tigase_messenger.session().getRosterPlugin().getRosterItem(
++							rosterComponent.getSelectedJID());
+ 					Subscription s = ri.getSubscription();
+ 
+ 					allowSubscriptionMenuItem.setEnabled(s == Subscription.to);
+@@ -664,7 +696,8 @@
+ 		Label separator = new HTML("&nbsp;");
+ 		headerPanel.setLayout(new RowLayout());
+ 
+-		Tigase_messenger.session().addEventListener(tigase.jaxmpp.core.client.events.Events.resourceBinded,
++		Tigase_messenger.session().addEventListener(
++				tigase.jaxmpp.core.client.events.Events.resourceBinded,
+ 				new tigase.jaxmpp.core.client.events.Listener<ResourceBindEvenet>() {
+ 
+ 					public void handleEvent(ResourceBindEvenet event) {
+@@ -775,7 +808,8 @@
+ 			MessageBox box = new MessageBox();
+ 			box.setModal(false);
+ 			box.setTitle("Remove contact");
+-			box.setMessage("Are You sure you want to remove '" + jid.toStringBare() + "' from Your roster?");
++			box.setMessage("Are You sure you want to remove '" + jid.toStringBare()
++					+ "' from Your roster?");
+ 			box.setButtons(MessageBox.YESNO);
+ 			box.setIcon(MessageBox.QUESTION);
+ 			box.addCallback(new Listener<MessageBoxEvent>() {
+Index: src/tigase/messenger/client/VersionInfo.properties
+===================================================================
+--- src/tigase/messenger/client/VersionInfo.properties	(revision 46)
++++ src/tigase/messenger/client/VersionInfo.properties	(working copy)
+@@ -1,2 +1,2 @@
+-#Wed Jun 10 08:05:14 CEST 2009
+-versionNumber=0.1.2-b41
++#Sun Jul 12 16:41:23 CEST 2009
++versionNumber=0.2.1-b46
+Index: src/tigase/messenger/client/login/LoginDialog.java
+===================================================================
+--- src/tigase/messenger/client/login/LoginDialog.java	(revision 46)
++++ src/tigase/messenger/client/login/LoginDialog.java	(working copy)
+@@ -80,6 +80,7 @@
+ 		this.password.setFieldLabel("Password");
+ 
+ 		this.nickname = new TextField<String>();
++		this.nickname.setVisible((Tigase_messenger.config().isDefaultAnonymous()));
+ 		this.nickname.setAllowBlank(true);
+ 		this.nickname.setEmptyText("Enter Your nickname here");
+ 		this.nickname.setFieldLabel("Nickname");
+@@ -94,6 +95,7 @@
+ 			}
+ 		});
+ 
++		this.anonumousLogin.setVisible((Tigase_messenger.config().isDefaultAnonymous()));
+ 		this.anonumousLogin.setValue((Tigase_messenger.config().isDefaultAnonymous()));
+ 		this.anonumousLogin.setFieldLabel("Anonumous");
+ 		this.anonumousLogin.setFireChangeEventOnSetValue(true);
+Index: war/index.html
+===================================================================
+--- war/index.html	(revision 46)
++++ war/index.html	(working copy)
+@@ -1,68 +0,0 @@
+-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+-<html>
+-<head>
+-<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+-<link type="text/css" rel="stylesheet" href="Tigase_messenger.css">
+-<link rel="stylesheet" type="text/css" href="resources/css/gxt-all.css" />
+-<title>Tigase Messenger</title>
+-<script type="text/javascript" language="javascript"
+-	src="tigase_messenger/tigase_messenger.nocache.js"></script>
+-<style>
+-#loading {
+-  position: absolute;
+-  left: 45%;
+-  top: 40%;
+-  margin-left: -45px;
+-  padding: 2px;
+-  z-index: 20001;
+-  height: auto;
+-  border: 1px solid #ccc;
+-}
+-
+-#loading a {
+-  color: #225588;
+-}
+-
+-#loading .loading-indicator {
+-  background: white;
+-  color: #444;
+-  font: bold 13px tahoma, arial, helvetica;
+-  padding: 10px;
+-  margin: 0;
+-  height: auto;
+-}
+-
+-#loading .loading-indicator img {
+-  margin-right:8px;
+-  float:left;
+-  vertical-align:top;
+-}
+-
+-#loading-msg {
+-  font: normal 10px arial, tahoma, sans-serif;
+-}
+-
+-</style>
+-<script type="text/javascript">
+-		var Config = {
+-			httpBase: "/bosh",
+-			debug: "false",
+-			jid: "guest@tigase.org",
+-			password: "guest111",
+-			anonymous: "true",
+-			hostname: "tigase.org",
+-			roomname: "jabber@conference.jabber.org",
+-			directPresences: "kobit@tigase.org,bmalkow@malkowscy.net"
+-		}
+-</script>
+-</head>
+-<body style="overflow: hidden">
+-
+-<div id="loading">
+-    <div class="loading-indicator">
+-    <img src="resources/images/default/shared/large-loading.gif" width="32" height="32"/>Tigase Messenger<a href="http://tigase.org"></a><br />
+-    <span id="loading-msg">Loading...</span>
+-    </div>
+-</div>
+-</body>
+-</html>
+\ No newline at end of file
+Index: war/index.php
+===================================================================
+--- war/index.php	(revision 46)
++++ war/index.php	(working copy)
+@@ -1,3 +1,29 @@
++<?php
++
++define(domain, 'ubuntu-sso-test.geekwu.org');
++define(muc, 'conference.'.domain);
++
++session_start();
++// TODO
++$login = 'Irulan';
++$password = ''; // TODO?
++//TODO
++$rooms = array('sso', 'roi', 'admin', 'barbare', 'elfebois', 'elfehaut', 'humain', 'humainnoir', 'mortvivant', 'nain', 'orc', 'scavenger', 'troll', 'vampire');
++
++/*
++$rooms = array('sso', $joueur['race']);
++if ($joueur['grade'] == 6) $rooms[] = 'roi';
++*/
++
++$roomlist = '';
++foreach ($rooms as $room) {
++	if ($roomlist != '') $roomlist .= ',';
++	$roomlist .= $room.'@'.muc;
++}
++
++$roomname = 'sso@'.muc;
++
++?>
+ <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+ <html>
+ <head>
+@@ -47,12 +73,13 @@
+ 		var Config = {
+ 			httpBase: "/bosh",
+ 			debug: "false",
+-			jid: "guest@tigase.org",
+-			password: "guest111",
+-			anonymous: "true",
+-			hostname: "tigase.org",
+-			roomname: "jabber@conference.jabber.org",
+-			directPresences: "kobit@tigase.org,bmalkow@malkowscy.net"
++			jid: "<?= $login.'@'.domain ?>/Tigase",
++			password: "<?= $password ?>",
++			anonymous: "false",
++			hostname: "ubuntu-sso-test.geekwu.org",
++			roomname: "<?= $roomname ?>",
++			directPresences: "",
++			rooms: "<?= $roomlist ?>"
+ 		}
+ </script>
+ </head>
+
+Property changes on: war/index.php
+___________________________________________________________________
+Added: svn:mergeinfo
+

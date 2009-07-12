@@ -1,0 +1,184 @@
+Only in jabberd2-muc-0.8.0.sso/: build-stamp
+diff -r -u jabberd2-muc-0.8.0/debian/changelog jabberd2-muc-0.8.0.sso/debian/changelog
+--- jabberd2-muc-0.8.0/debian/changelog	2009-07-12 21:45:12.000000000 +0200
++++ jabberd2-muc-0.8.0.sso/debian/changelog	2009-07-12 20:23:44.000000000 +0200
+@@ -1,3 +1,9 @@
++jabberd2-muc (0.8.0-0~ppahardy3+sso) hardy; urgency=low
++
++  * SSO Hack
++
++ -- Bastien Durel <bastien@durel.org>  Sun, 12 Jun 2009 20:23:47 +0200
++
+ jabberd2-muc (0.8.0-0~ppahardy3) hardy; urgency=low
+ 
+   * build for hardy
+Only in jabberd2-muc-0.8.0.sso/debian: files
+Only in jabberd2-muc-0.8.0.sso/debian: jabberd2-muc
+Only in jabberd2-muc-0.8.0.sso/debian: jabberd2-muc.substvars
+diff -r -u jabberd2-muc-0.8.0/include/conference.h jabberd2-muc-0.8.0.sso/include/conference.h
+--- jabberd2-muc-0.8.0/include/conference.h	2009-03-23 22:06:38.000000000 +0100
++++ jabberd2-muc-0.8.0.sso/include/conference.h	2009-07-12 20:27:19.000000000 +0200
+@@ -339,4 +339,7 @@
+ void sql_destroy_room(mysql sql, char * room_jid);
+ void sql_add_affiliate(mysql sql,cnr room,char * userid,int affil);
+ void sql_remove_affiliate(mysql sql,cnr room,jid userid);
++#if defined SSO_HACK
++int query_ok(mysql sql, const char * query);
++#endif
+ #endif
+diff -r -u jabberd2-muc-0.8.0/src/conference_user.c jabberd2-muc-0.8.0.sso/src/conference_user.c
+--- jabberd2-muc-0.8.0/src/conference_user.c	2008-11-19 21:59:46.000000000 +0100
++++ jabberd2-muc-0.8.0.sso/src/conference_user.c	2009-07-12 19:40:26.000000000 +0200
+@@ -60,9 +60,9 @@
+     /* Update affiliate information */
+     log_debug(NAME, "[%s] Updating %s in the member list", FZONE, jid_full(user->realid));
+ 
+-    #ifdef HAVE_MYSQL
++#ifdef HAVE_MYSQL
+     sql_add_affiliate(room->master->sql, room,jid_full(user->realid),TAFFIL_MEMBER.code);
+-    #endif
++#endif
+     add_affiliate(room->member, user->realid, NULL);
+     add_role(room->participant, user);
+   }
+diff -r -u jabberd2-muc-0.8.0/src/Makefile jabberd2-muc-0.8.0.sso/src/Makefile
+--- jabberd2-muc-0.8.0/src/Makefile	2007-07-17 00:05:44.000000000 +0200
++++ jabberd2-muc-0.8.0.sso/src/Makefile	2009-07-12 20:22:24.000000000 +0200
+@@ -1,8 +1,8 @@
+ CC:=gcc
+-CFLAGS:=$(CFLAGS) -O2 -Wall -I../../lib -I../include `pkg-config --cflags glib-2.0` -D_JCOMP -D_REENTRANT -DLIBIDN
+-#CFLAGS:=$(CFLAGS) -O2 -Wall -I../../lib -I../include `pkg-config --cflags glib-2.0` -D_JCOMP -D_REENTRANT -DLIBIDN -DHAVE_MYSQL
+-LIBS:=$(LIBS) -ljcomp -lm `pkg-config --libs glib-2.0` `pkg-config --libs gthread-2.0` -lexpat -lidn
+-#LIBS:=$(LIBS) -ljcomp -lm `pkg-config --libs glib-2.0` `pkg-config --libs gthread-2.0` -lexpat -lidn `mysql_config --libs`
++#CFLAGS:=$(CFLAGS) -O2 -Wall -I../../lib -I../include `pkg-config --cflags glib-2.0` -D_JCOMP -D_REENTRANT -DLIBIDN
++CFLAGS:=$(CFLAGS) -O2 -Wall -I../../lib -I../include `pkg-config --cflags glib-2.0` -D_JCOMP -D_REENTRANT -DLIBIDN -DHAVE_MYSQL -DSSO_HACK
++#LIBS:=$(LIBS) -ljcomp -lm `pkg-config --libs glib-2.0` `pkg-config --libs gthread-2.0` -lexpat -lidn
++LIBS:=$(LIBS) -ljcomp -lm `pkg-config --libs glib-2.0` `pkg-config --libs gthread-2.0` -lexpat -lidn `mysql_config --libs`
+ LDFLAGS:=-L.
+ 
+ # Debug/Experimental
+diff -r -u jabberd2-muc-0.8.0/src/mysql.c jabberd2-muc-0.8.0.sso/src/mysql.c
+--- jabberd2-muc-0.8.0/src/mysql.c	2009-03-23 00:00:05.000000000 +0100
++++ jabberd2-muc-0.8.0.sso/src/mysql.c	2009-07-12 21:36:52.000000000 +0200
+@@ -111,6 +111,28 @@
+   return 0;
+ }
+ 
++#if defined SSO_HACK
++/* returns the number of rows */
++int query_ok(mysql sql, const char * query) {
++  int ret = 0;
++  if (sql == NULL) return 0;
++  log_debug(NAME,"[%s] Trying to execute query : %s", FZONE, query);
++  ret = mysql_query(sql->mysql, query);
++  if (!ret) {
++		ret = 0;
++		MYSQL_ROW row;
++		MYSQL_RES *	res = mysql_use_result(sql->mysql);
++		while ((row = mysql_fetch_row(res)) != NULL) {
++			log_debug(NAME,"[%s] row %d: %s", FZONE, ret, row[0]);			
++			++ret;
++		}
++		mysql_free_result(res);
++	}
++  log_debug(NAME,"[%s] returning %d", FZONE, ret);
++	return ret;
++}
++#endif
++
+ /* escape a string using mysql_real_escape. str is the string to escape, buffer is a previously created buffer, limit is the size of the buffer.
+  * Return: the buffer */
+ char * _sql_escape_string(MYSQL * mysql, char * str, char * buffer, int limit) {
+diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
+--- jabberd2-muc-0.8.0/src/utils.c	2007-11-10 11:19:05.000000000 +0100
++++ jabberd2-muc-0.8.0.sso/src/utils.c	2009-07-12 21:29:08.000000000 +0200
+@@ -209,6 +209,27 @@
+   if(is_owner(room, user))
+     return 2;
+ 
++#if defined HAVE_MYSQL && defined SSO_HACK
++	{
++		char query[1024] = {};
++		int n;
++		
++		log_debug(NAME, "[%s] Enter in SSO_HACK for %s -> %s",
++							FZONE, jid_full(user), room->name);
++		
++		n = snprintf(query, sizeof(query) - 1, "select statut from jabber_admin "
++								 "where nom = '%s'", user->user);
++		
++		log_debug(NAME, "[%s] query is {%s}, n is %d",
++							FZONE, query, n);
++		
++		if (n < sizeof(query) && query_ok(room->master->sql, query)) {
++			log_debug(NAME, "[%s] Is Modo? >%s< - Yes", FZONE, jid_full(user));
++			return 1;
++		}
++	}
++#endif
++
+   if(g_hash_table_lookup(room->admin, ujid) != NULL )
+     return 1;
+   else if(g_hash_table_lookup(room->admin, user->server) != NULL )
+@@ -295,6 +316,61 @@
+     return 1;
+   }
+ 
++#if defined HAVE_MYSQL && defined SSO_HACK
++	{
++		char query[1024] = {};
++		int n;
++		
++		log_debug(NAME, "[%s] Enter in SSO_HACK for %s -> %s",
++							FZONE, jid_full(user), room->name);
++
++		if (!strcmp(room->name, "roi")) {
++			// Cas du chan des rois
++			n = snprintf(query, sizeof(query) - 1, "select id from perso "
++							 "where rang_royaume = 6 and nom = '%s'", user->user);
++			
++			log_debug(NAME, "[%s] query is {%s}, n is %d",
++								FZONE, query, n);
++
++			if (n < sizeof(query) && query_ok(room->master->sql, query)) {
++				log_debug(NAME, "[%s] Is King? >%s< - Yes", FZONE, jid_full(user));
++				return 1;
++			}
++		}
++
++		if (!strcmp(room->name, "admin")) {
++			// Cas du chan des admins/modo
++			n = snprintf(query, sizeof(query) - 1, "select statut from jabber_admin "
++							 "where nom = '%s'", user->user);
++			
++			log_debug(NAME, "[%s] query is {%s}, n is %d",
++								FZONE, query, n);
++
++			if (n < sizeof(query) && query_ok(room->master->sql, query)) {
++				log_debug(NAME, "[%s] Is Modo? >%s< - Yes", FZONE, jid_full(user));
++				return 1;
++			}
++		}
++
++		// Ne devrait pas arriver
++		if (!strcmp(room->name, "sso")) return 1;
++		
++		// Cas général
++		n = snprintf(query, sizeof(query) - 1, "select id from perso "
++								 "where race = '%s' and nom = '%s'",
++								 room->name, user->user);
++		
++		log_debug(NAME, "[%s] query is {%s}, n is %d",
++							FZONE, query, n);
++		
++		if (n < sizeof(query) && query_ok(room->master->sql, query)) {
++			log_debug(NAME, "[%s] Is `%s`? >%s< - Yes", room->name, FZONE, jid_full(user));
++			return 1;
++		}
++
++	}
++#endif
++
+   if(g_hash_table_lookup(room->member, ujid) != NULL )
+   {
+     log_debug(NAME, "[%s] Is Member? >%s< - Yes (case 1)", FZONE, jid_full(user));
