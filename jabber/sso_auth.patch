@@ -1,0 +1,75 @@
+diff -u /tmp/authreg_mysql.c.orig c2s/authreg_mysql.c
+--- /tmp/authreg_mysql.c.orig	2009-07-23 22:13:49.000000000 +0200
++++ c2s/authreg_mysql.c	2009-07-24 12:08:53.000000000 +0200
+@@ -379,6 +379,50 @@
+   return 1;
+ }
+ 
++static int _ar_mysql_check_password(authreg_t ar, char *username, char *realm, char password[257])
++{
++  mysqlcontext_t ctx = (mysqlcontext_t) ar->private;
++  MYSQL *conn = ctx->conn;
++  MYSQL_RES *res = NULL;
++  MYSQL_FIELD *field;
++  MYSQL_ROW tuple;
++  int i, fpass = 0;
++  char sql[2048] = {};
++  const char* sqlp = &(sql[0]);
++
++  sprintf(sql, "select password from perso where replace(nom, ' ', '_') = '%s' and password = MD5('%s') and statut = 'actif' union all select password from jabber_admin where replace(nom, ' ', '_') = '%s' and password = MD5('%s')",
++	  username, password, username, password);
++
++  //log_write(ar->c2s->log, LOG_ERR, "_ar_mysql_check_password: %s", sql);
++
++  if (mysql_query(conn, sql) != 0) {
++    log_write(ar->c2s->log, LOG_ERR, "mysql select failed");
++    return 1;
++  }
++  
++  res = mysql_store_result(conn);
++  if (res == NULL)
++    return 1;
++  
++  if((tuple = mysql_fetch_row(res)) == NULL) {
++    log_write(ar->c2s->log, LOG_ERR, "mysql: sql tuple retrieval failed: %s", mysql_error(conn));
++    mysql_free_result(res);
++    return 1;
++  }
++
++  if (tuple[0] == NULL) {
++    log_write(ar->c2s->log, LOG_ERR, "No password found");
++    mysql_free_result(res);
++    return 1;
++  }
++  
++  mysql_free_result(res);
++  
++  //log_write(ar->c2s->log, LOG_ERR, "Auth OK for %s@%s", username, realm);
++
++  return 0;
++}
++
+ /** start me up */
+ int ar_mysql_init(authreg_t ar) {
+     char *host, *port, *dbname, *user, *pass;
+@@ -395,9 +439,7 @@
+     ar->free = _ar_mysql_free;
+ 
+     /* determine our field names and table name */
+-    username = _ar_mysql_param( ar->c2s->config
+-	       , "authreg.mysql.field.username"
+-	       , "username" ); 
++    username = "replace(`nom`, ' ', '_')";
+     realm = _ar_mysql_param( ar->c2s->config
+ 	       , "authreg.mysql.field.realm"
+ 	       , "realm" ); 
+@@ -530,7 +569,8 @@
+     conn->reconnect = 1;
+ 
+     ar->user_exists = _ar_mysql_user_exists;
+-    ar->get_password = _ar_mysql_get_password;
++    //ar->get_password = _ar_mysql_get_password;
++    ar->check_password = _ar_mysql_check_password;
+     ar->set_password = _ar_mysql_set_password;
+     ar->get_zerok = _ar_mysql_get_zerok;
+     ar->set_zerok = _ar_mysql_set_zerok;
