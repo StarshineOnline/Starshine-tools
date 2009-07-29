@@ -87,7 +87,7 @@ diff -r -u jabberd2-muc-0.8.0/src/mysql.c jabberd2-muc-0.8.0.sso/src/mysql.c
  char * _sql_escape_string(MYSQL * mysql, char * str, char * buffer, int limit) {
 diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
 --- jabberd2-muc-0.8.0/src/utils.c	2007-11-10 11:19:05.000000000 +0100
-+++ jabberd2-muc-0.8.0.sso/src/utils.c	2009-07-29 14:52:55.000000000 +0200
++++ jabberd2-muc-0.8.0.sso/src/utils.c	2009-07-29 15:18:12.000000000 +0200
 @@ -209,6 +209,27 @@
    if(is_owner(room, user))
      return 2;
@@ -116,63 +116,94 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
    if(g_hash_table_lookup(room->admin, ujid) != NULL )
      return 1;
    else if(g_hash_table_lookup(room->admin, user->server) != NULL )
-@@ -295,6 +316,61 @@
+@@ -232,6 +253,30 @@
+     return 2;
+   }
+ 
++#if defined HAVE_MYSQL && defined SSO_HACK
++  {
++    char query[1024] = {};
++    int n;
++    
++    log_debug(NAME, "[%s] Enter in SSO_HACK for %s -> %s",
++	      FZONE, jid_full(user), room->name);
++    
++    /* Is king of the current race */
++    n = snprintf(query, sizeof(query) - 1, "select id from perso "
++		 "where replace(nom, ' ', '_') = '%s' and "
++		 "race = '%s' and rang_royaume = 6",
++		 user->user, room->name);
++    
++    log_debug(NAME, "[%s] query is {%s}, n is %d",
++	      FZONE, query, n);
++    
++    if (n < sizeof(query) && query_ok(room->master->sql, query)) {
++      log_debug(NAME, "[%s] Is King of ? >%s< - Yes", FZONE, jid_full(user));
++      return 1;
++    }
++  }
++#endif
++
+   if(g_hash_table_lookup(room->moderator, jid_full(user)) != NULL )
+   {
+     log_debug(NAME, "[%s] Is Moderator? >%s< - Moderator", FZONE, jid_full(user));
+@@ -295,6 +340,61 @@
      return 1;
    }
  
 +#if defined HAVE_MYSQL && defined SSO_HACK
-+	{
-+		char query[1024] = {};
-+		int n;
-+		
-+		log_debug(NAME, "[%s] Enter in SSO_HACK for %s -> %s",
-+							FZONE, jid_full(user), room->name);
-+
-+		if (!strcmp(room->name, "roi")) {
-+			// Cas du chan des rois
-+			n = snprintf(query, sizeof(query) - 1, "select id from perso "
-+							 "where rang_royaume = 6 and replace(nom, ' ', '_') = '%s'", user->user);
-+			
-+			log_debug(NAME, "[%s] query is {%s}, n is %d",
-+								FZONE, query, n);
-+
-+			if (n < sizeof(query) && query_ok(room->master->sql, query)) {
-+				log_debug(NAME, "[%s] Is King? >%s< - Yes", FZONE, jid_full(user));
-+				return 1;
-+			}
-+		}
-+
-+		if (!strcmp(room->name, "admin")) {
-+			// Cas du chan des admins/modo
-+			n = snprintf(query, sizeof(query) - 1, "select statut from jabber_admin "
-+							 "where replace(nom, ' ', '_') = '%s'", user->user);
-+			
-+			log_debug(NAME, "[%s] query is {%s}, n is %d",
-+								FZONE, query, n);
-+
-+			if (n < sizeof(query) && query_ok(room->master->sql, query)) {
-+				log_debug(NAME, "[%s] Is Modo? >%s< - Yes", FZONE, jid_full(user));
-+				return 1;
-+			}
-+		}
-+
-+		// Ne devrait pas arriver
-+		if (!strcmp(room->name, "sso")) return 1;
-+		
-+		// Cas général
-+		n = snprintf(query, sizeof(query) - 1, "select id from perso "
-+								 "where race = '%s' and replace(nom, ' ', '_') = '%s'",
-+								 room->name, user->user);
-+		
-+		log_debug(NAME, "[%s] query is {%s}, n is %d",
-+							FZONE, query, n);
-+		
-+		if (n < sizeof(query) && query_ok(room->master->sql, query)) {
-+			log_debug(NAME, "[%s] Is `%s`? >%s< - Yes", room->name, FZONE, jid_full(user));
-+			return 1;
-+		}
-+
-+	}
++  {
++    char query[1024] = {};
++    int n;
++    
++    log_debug(NAME, "[%s] Enter in SSO_HACK for %s -> %s",
++	      FZONE, jid_full(user), room->name);
++    
++    if (!strcmp(room->name, "roi")) {
++      // Cas du chan des rois
++      n = snprintf(query, sizeof(query) - 1, "select id from perso "
++		   "where rang_royaume = 6 and replace(nom, ' ', '_') = '%s'", user->user);
++      
++      log_debug(NAME, "[%s] query is {%s}, n is %d",
++		FZONE, query, n);
++      
++      if (n < sizeof(query) && query_ok(room->master->sql, query)) {
++	log_debug(NAME, "[%s] Is King? >%s< - Yes", FZONE, jid_full(user));
++	return 1;
++      }
++    }
++    
++    if (!strcmp(room->name, "admin")) {
++      // Cas du chan des admins/modo
++      n = snprintf(query, sizeof(query) - 1, "select statut from jabber_admin "
++		   "where replace(nom, ' ', '_') = '%s'", user->user);
++      
++      log_debug(NAME, "[%s] query is {%s}, n is %d",
++		FZONE, query, n);
++      
++      if (n < sizeof(query) && query_ok(room->master->sql, query)) {
++	log_debug(NAME, "[%s] Is Modo? >%s< - Yes", FZONE, jid_full(user));
++	return 1;
++      }
++    }
++    
++    // Ne devrait pas arriver
++    if (!strcmp(room->name, "sso")) return 1;
++    
++    // Cas général
++    n = snprintf(query, sizeof(query) - 1, "select id from perso "
++		 "where race = '%s' and replace(nom, ' ', '_') = '%s'",
++		 room->name, user->user);
++    
++    log_debug(NAME, "[%s] query is {%s}, n is %d",
++	      FZONE, query, n);
++    
++    if (n < sizeof(query) && query_ok(room->master->sql, query)) {
++      log_debug(NAME, "[%s] Is `%s`? >%s< - Yes", room->name, FZONE, jid_full(user));
++      return 1;
++    }
++    
++  }
 +#endif
 +
    if(g_hash_table_lookup(room->member, ujid) != NULL )
