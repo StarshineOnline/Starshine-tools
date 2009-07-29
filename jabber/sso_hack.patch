@@ -1,4 +1,3 @@
-Only in jabberd2-muc-0.8.0.sso/: build-stamp
 diff -r -u jabberd2-muc-0.8.0/debian/changelog jabberd2-muc-0.8.0.sso/debian/changelog
 --- jabberd2-muc-0.8.0/debian/changelog	2009-07-12 21:45:12.000000000 +0200
 +++ jabberd2-muc-0.8.0.sso/debian/changelog	2009-07-12 20:23:44.000000000 +0200
@@ -12,9 +11,6 @@ diff -r -u jabberd2-muc-0.8.0/debian/changelog jabberd2-muc-0.8.0.sso/debian/cha
  jabberd2-muc (0.8.0-0~ppahardy3) hardy; urgency=low
  
    * build for hardy
-Only in jabberd2-muc-0.8.0.sso/debian: files
-Only in jabberd2-muc-0.8.0.sso/debian: jabberd2-muc
-Only in jabberd2-muc-0.8.0.sso/debian: jabberd2-muc.substvars
 diff -r -u jabberd2-muc-0.8.0/include/conference.h jabberd2-muc-0.8.0.sso/include/conference.h
 --- jabberd2-muc-0.8.0/include/conference.h	2009-03-23 22:06:38.000000000 +0100
 +++ jabberd2-muc-0.8.0.sso/include/conference.h	2009-07-12 20:27:19.000000000 +0200
@@ -91,7 +87,7 @@ diff -r -u jabberd2-muc-0.8.0/src/mysql.c jabberd2-muc-0.8.0.sso/src/mysql.c
  char * _sql_escape_string(MYSQL * mysql, char * str, char * buffer, int limit) {
 diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
 --- jabberd2-muc-0.8.0/src/utils.c	2007-11-10 11:19:05.000000000 +0100
-+++ jabberd2-muc-0.8.0.sso/src/utils.c	2009-07-12 21:29:08.000000000 +0200
++++ jabberd2-muc-0.8.0.sso/src/utils.c	2009-07-29 14:52:55.000000000 +0200
 @@ -209,6 +209,27 @@
    if(is_owner(room, user))
      return 2;
@@ -105,7 +101,7 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
 +							FZONE, jid_full(user), room->name);
 +		
 +		n = snprintf(query, sizeof(query) - 1, "select statut from jabber_admin "
-+								 "where nom = '%s'", user->user);
++								 "where replace(nom, ' ', '_') = '%s'", user->user);
 +		
 +		log_debug(NAME, "[%s] query is {%s}, n is %d",
 +							FZONE, query, n);
@@ -135,7 +131,7 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
 +		if (!strcmp(room->name, "roi")) {
 +			// Cas du chan des rois
 +			n = snprintf(query, sizeof(query) - 1, "select id from perso "
-+							 "where rang_royaume = 6 and nom = '%s'", user->user);
++							 "where rang_royaume = 6 and replace(nom, ' ', '_') = '%s'", user->user);
 +			
 +			log_debug(NAME, "[%s] query is {%s}, n is %d",
 +								FZONE, query, n);
@@ -149,7 +145,7 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
 +		if (!strcmp(room->name, "admin")) {
 +			// Cas du chan des admins/modo
 +			n = snprintf(query, sizeof(query) - 1, "select statut from jabber_admin "
-+							 "where nom = '%s'", user->user);
++							 "where replace(nom, ' ', '_') = '%s'", user->user);
 +			
 +			log_debug(NAME, "[%s] query is {%s}, n is %d",
 +								FZONE, query, n);
@@ -165,7 +161,7 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
 +		
 +		// Cas général
 +		n = snprintf(query, sizeof(query) - 1, "select id from perso "
-+								 "where race = '%s' and nom = '%s'",
++								 "where race = '%s' and replace(nom, ' ', '_') = '%s'",
 +								 room->name, user->user);
 +		
 +		log_debug(NAME, "[%s] query is {%s}, n is %d",
