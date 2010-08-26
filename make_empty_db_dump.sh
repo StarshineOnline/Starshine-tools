@@ -29,10 +29,13 @@ defaultopts="--no-create-db $defaultopts"
 mysqldump --add-drop-table --no-data $defaultopts > starshine.sql
 
 ## Get static tables content
-tables="comp_combat comp_jeu accessoire arme armure classe classe_comp_permet classe_permet classe_requis gemme monstre objet quete recette sort_combat sort_jeu taverne terrain_batiment pnj map_vide"
+tables="comp_combat comp_jeu accessoire arme armure classe classe_comp_permet classe_permet classe_requis gemme monstre objet quete recette sort_combat sort_jeu taverne terrain_batiment pnj map_vide royaume"
 mysqldump --no-create-info $defaultopts $tables >> starshine.sql
 
+echo "insert into \`map\` select * from \`map_vide\` ;" >> starshine.sql
+
 ## Commit it
+rm -f starshine.sql.bz2
 bzip2 starshine.sql
 rm -f starshine.sql
-svn commit --non-interactive -m "auto-generation de la base SSO" starshine.sql.bz
+svn commit --non-interactive -m "auto-generation de la base SSO" starshine.sql.bz2 make_empty_db_dump.sh
