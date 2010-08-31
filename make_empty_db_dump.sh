@@ -33,7 +33,7 @@ defaultopts="--no-create-db $defaultopts"
 mysqldump --add-drop-table --no-data $defaultopts > starshine.sql
 
 ## Get static tables content
-tables="comp_combat comp_jeu accessoire arme armure classe classe_comp_permet classe_permet classe_requis gemme monstre objet quete recette sort_combat sort_jeu taverne terrain_batiment pnj royaume grade map_event"
+tables="comp_combat comp_jeu accessoire arme armure classe classe_comp_permet classe_permet classe_requis gemme monstre objet quete recette sort_combat sort_jeu taverne terrain_batiment pnj royaume grade map_event donjon"
 tmp_tables="map_vide"
 mysqldump --no-create-info $defaultopts $tables $tmp_tables >> starshine.sql
 
@@ -50,7 +50,16 @@ update \`royaume\` set ministre_economie = 0, ministre_militaire = 0, capitale_h
 
 -- Initialisation des constructions des villes
 insert into construction_ville select null, royaume.id, minref.id_batiment, 'actif', 0, hp, 0 from royaume, (select min(id) as id_batiment, nom, cout, entretien, type, level, hp from batiment_ville group by type) minref ;
+
+-- Initialisation de la diplo (manque les 127, qui viennent apres)
+insert into diplomatie select race, 5,5,5,5,5,5,5,5,5,5,5 from royaume;
+
 EOF
+
+races="barbare elfebois elfehaut humain humainnoir mortvivant nain orc scavenger troll vampire"
+for race in $races ; do
+		echo "update diplomatie set $race = 127 where race = '$race' ;" >> starshine.sql
+done
 
 for tbl in $tmp_tables ; do
 		echo "-- drop table $tbl ;" >> starshine.sql
