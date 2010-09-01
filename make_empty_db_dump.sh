@@ -33,7 +33,7 @@ defaultopts="--no-create-db $defaultopts"
 mysqldump --add-drop-table --no-data $defaultopts > starshine.sql
 
 ## Get static tables content
-tables="comp_combat comp_jeu accessoire arme armure classe classe_comp_permet classe_permet classe_requis gemme monstre objet quete recette sort_combat sort_jeu taverne terrain_batiment pnj royaume grade map_event donjon"
+tables="comp_combat comp_jeu accessoire arme armure classe classe_comp_permet classe_permet classe_requis gemme monstre objet quete recette sort_combat sort_jeu taverne terrain_batiment pnj royaume grade map_event donjon objet_royaume"
 tmp_tables="map_vide"
 mysqldump --no-create-info $defaultopts $tables $tmp_tables >> starshine.sql
 
