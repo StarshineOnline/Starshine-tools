@@ -51,6 +51,9 @@ update \`royaume\` set ministre_economie = 0, ministre_militaire = 0, capitale_h
 -- Initialisation des constructions des villes
 insert into construction_ville select null, royaume.id, minref.id_batiment, 'actif', 0, hp, 0 from royaume, (select min(id) as id_batiment, nom, cout, entretien, type, level, hp from batiment_ville group by type) minref ;
 
+-- Initialisation des elections
+insert into elections select null, id, last_day(now()) + INTERVAL 1 DAY, 'universel' from royaumes where id > 0 ;
+
 -- Initialisation de la diplo (manque les 127, qui viennent apres)
 insert into diplomatie select race, 5,5,5,5,5,5,5,5,5,5,5 from royaume;
 
