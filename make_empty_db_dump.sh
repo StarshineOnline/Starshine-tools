@@ -33,7 +33,7 @@ defaultopts="--no-create-db $defaultopts"
 mysqldump --add-drop-table --no-data $defaultopts > starshine.sql
 
 ## Get static tables content
-tables="accessoire achievement_type arme armure batiment batiment_ville bonus bonus_permet classe classe_comp_permet classe_permet classe_requis comp_combat comp_jeu craft_recette craft_recette_ingredient craft_recette_instrument craft_recette_recipient donjon gemme grade grimoire map_event monstre objet objet_royaume pnj quete recette royaume sort_combat sort_jeu taverne terrain_batiment"
+tables="accessoire achievement_type arme armure batiment batiment_ville batiment_bonus bonus bonus_permet classe classe_comp_permet classe_permet classe_requis comp_combat comp_jeu craft_recette craft_recette_ingredient craft_recette_instrument craft_recette_recipient donjon donjon_entry_point gemme grade grimoire map_event map_type_calque map_zone monstre objet objet_royaume objet_pet pnj point_victoire_action quete recette royaume sort_combat sort_jeu taverne terrain_batiment"
 tmp_tables="map_vide"
 mysqldump --no-create-info $defaultopts $tables $tmp_tables >> starshine.sql
 
@@ -56,6 +56,15 @@ insert into elections select null, id, last_day(now()) + INTERVAL 1 DAY, 'univer
 
 -- Initialisation de la diplo (manque les 127, qui viennent apres)
 insert into diplomatie select race, 5,5,5,5,5,5,5,5,5,5,5 from royaume;
+
+-- DROP tables de test
+drop table map_sav;
+drop table map_poids;
+drop table map_old;
+drop table test_char_semantics;
+drop table test_para_sil;
+drop table test_pm;
+drop table test_vol;
 
 EOF
 
