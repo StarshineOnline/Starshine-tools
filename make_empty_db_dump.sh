@@ -33,7 +33,7 @@ defaultopts="--no-create-db $defaultopts"
 mysqldump --add-drop-table --no-data $defaultopts > starshine.sql
 
 ## Get static tables content
-tables="accessoire achievement_type arme armure batiment batiment_ville batiment_bonus bonus bonus_permet classe classe_comp_permet classe_permet classe_requis comp_combat comp_jeu craft_recette craft_recette_ingredient craft_recette_instrument craft_recette_recipient donjon donjon_entry_point gemme grade grimoire map_event map_type_calque map_zone monstre objet objet_royaume objet_pet pnj point_victoire_action quete recette royaume sort_combat sort_jeu taverne terrain_batiment"
+tables="accessoire achievement_type arme armure batiment batiment_ville batiment_bonus bonus bonus_permet calendrier classe classe_comp_permet classe_permet classe_requis comp_combat comp_jeu craft_recette craft_recette_ingredient craft_recette_instrument craft_recette_recipient donjon donjon_entry_point gemme grade grimoire map_event map_type_calque map_zone monstre objet objet_royaume objet_pet pnj point_victoire_action quete recette royaume sort_combat sort_jeu taverne terrain_batiment"
 tmp_tables="map_vide"
 mysqldump --no-create-info $defaultopts $tables $tmp_tables >> starshine.sql
 
