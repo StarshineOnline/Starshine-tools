@@ -26,6 +26,7 @@ my @commits = @$com;
 if ($repo_name eq 'Starshine-images') {
     chdir '/srv/starshine-data/starshine/image';
     system ("git pull");
+		system ("chmod g+w cart carte cart/carte_roy_*");
 }
 if ($repo_name eq 'Starshine-Online') {
     chdir "/srv/starshine-data/git_repo/Starshine-Online";
@@ -33,17 +34,17 @@ if ($repo_name eq 'Starshine-Online') {
     system ("git reset --soft refs/remotes/origin/master");
     my $isActeon = 0;
     for (@commits) {
-	my %c = %$_;
-	my $author = $c{author};
-	my $username = $$author{username}; print "$username\n";
-	if ($username eq 'Acteon') {
-	    $isActeon = 1;
-	    last;
-	}
+				my %c = %$_;
+				my $author = $c{author};
+				my $username = $$author{username}; print "$username\n";
+				if ($username eq 'Acteon') {
+						$isActeon = 1;
+						last;
+				}
     }
     if ($isActeon) {
-	system ("git archive master css | tar -x -C /srv/starshine-data/starshine/starshine071");
-	system ("git archive master admin | tar -x -C /srv/starshine-data/starshine/starshine071");
+				system ("git archive master css | tar -x -C /srv/starshine-data/starshine/starshine071");
+				system ("git archive master admin | tar -x -C /srv/starshine-data/starshine/starshine071");
     }
 }
 if ($repo_name eq 'Starshine-tools') {
