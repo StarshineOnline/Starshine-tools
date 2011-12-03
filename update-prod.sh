@@ -25,7 +25,8 @@ set -x
 
 cd $REPO
 git fetch || exit 1
-git reset --soft refs/remotes/origin/master || exit 1
+git reset --soft master || exit 1
 git archive $target | tar -x -C $PROD
 chmod g+w $PROD/arenes/ $PROD/arenes/admin/
 exit 0
+
