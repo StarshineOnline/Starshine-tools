@@ -17,6 +17,10 @@ fi
 REPO=/srv/starshine-data/git_repo/Starshine-Online
 PROD=/srv/starshine-data/starshine/starshine071
 
+if [ -f /home/starshine/config.sh ] ; then
+	. /home/starshine/config.sh
+fi
+
 set -x
 
 cd $REPO

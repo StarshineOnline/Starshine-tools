@@ -8,11 +8,15 @@ if ! id -un | grep -q starshine ; then
     exit 1
 fi
 
-PROD=/srv/starshine-data/starshine/image
+PROD_IMG=/srv/starshine-data/starshine/image
+
+if [ -f /home/starshine/config.sh ] ; then
+	. /home/starshine/config.sh
+fi
 
 set -x
 
-cd $PROD
+cd $PROD_IMG
 git pull
 if [ ! -z "$1" ] ; then
 	git checkout $1
