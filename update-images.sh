@@ -22,7 +22,7 @@ if [ ! -z "$1" ] ; then
 	git checkout $1
 fi
 
-chmod g+w $PROD/cart $PROD/carte $PROD/cart/carte_roy_*
+chmod g+w $PROD_IMG/cart $PROD_IMG/carte $PROD_IMG/cart/carte_roy_*
 
 exit 0
 
