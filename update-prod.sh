@@ -24,7 +24,7 @@ fi
 set -x
 
 cd $REPO
-git fetch || exit 1
+git fetch origin '+refs/heads/*:refs/heads/*' || exit 1
 git reset --soft master || exit 1
 git archive $target | tar -x -C $PROD
 chmod g+w $PROD/arenes/ $PROD/arenes/admin/
