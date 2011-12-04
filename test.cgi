@@ -33,7 +33,7 @@ if ($repo_name eq 'Starshine-images') {
 }
 if ($repo_name eq 'Starshine-Online') {
     chdir $cfg->param('REPO');
-    system ("git fetch");
+    system ("git fetch origin '+refs/heads/*:refs/heads/*'");
     system ("git reset --soft master");
     my $isActeon = 0;
     for (@commits) {
