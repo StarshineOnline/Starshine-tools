@@ -29,7 +29,7 @@ git reset --soft master || exit 1
 git archive $target | tar -x -C $PROD
 chmod g+w $PROD/arenes/ $PROD/arenes/admin/
 
-cd sql
+cd $PROD/sql
 php db_check_auto_maj.php
 exit 0
 
