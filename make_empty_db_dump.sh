@@ -26,15 +26,16 @@ cpy_to() { # table, tmp, cwhere, rupd
 		mysql $defaultopts -e "update $2 $4"
 }
 
-cpy_to map map_vide "" "set royaume = 0 where type != 1"
+cpy_to map map_vide "where x <= 190 and y <= 190" "set royaume = 0 where type != 1"
+cpy_to map_event map_event_vide "where x <= 190 and y <= 190" "set x=x where 1=0"
 
 ## Dump table structures
 defaultopts="--no-create-db $defaultopts"
 mysqldump --add-drop-table --no-data $defaultopts > starshine.sql
 
 ## Get static tables content
-tables="accessoire achievement_type arme armure batiment batiment_ville batiment_bonus bonus bonus_permet calendrier classe classe_comp_permet classe_permet classe_requis comp_combat comp_jeu craft_recette craft_recette_ingredient craft_recette_instrument craft_recette_recipient donjon donjon_entry_point gemme grade grimoire map_event map_type_calque map_zone monstre objet objet_royaume objet_pet pnj point_victoire_action quete recette royaume sort_combat sort_jeu taverne terrain_batiment"
-tmp_tables="map_vide"
+tables="accessoire achievement_type arme armure batiment batiment_ville batiment_bonus bonus bonus_permet boss_loot classe classe_comp_permet classe_permet classe_requis comp_combat comp_jeu craft_recette craft_recette_ingredient craft_recette_instrument craft_recette_recipient db_auto_maj donjon donjon_entry_point gemme grade grimoire map_type_calque map_zone monstre objet objet_royaume objet_pet pnj point_victoire_action quete recette royaume sort_combat sort_jeu taverne terrain_batiment"
+tmp_tables="map_vide map_event_vide"
 mysqldump --no-create-info $defaultopts $tables $tmp_tables >> starshine.sql
 
 cat >> starshine.sql <<EOF
@@ -43,7 +44,8 @@ cat >> starshine.sql <<EOF
 --
 
 -- Generation de la map (vide)
-insert into \`map\` select * from \`map_vide\` ;
+insert into \`map\` select * from \`map_vide\`;
+insert into \`map_event\` select * from \`map_event_vide\`;
 
 -- RAZ des royaumes
 update \`royaume\` set ministre_economie = 0, ministre_militaire = 0, capitale_hp = 30000, fin_raz_capitale = 0, bourg = 0, pierre = 10000, bois = 10000, eau = 10000, sable = 10000, charbon = 10000, essence = 10000, food = 10000, alchimie = 0 ;
@@ -81,4 +83,5 @@ done
 rm -f starshine.sql.bz2
 bzip2 starshine.sql
 rm -f starshine.sql
-svn commit --non-interactive -m "auto-generation de la base SSO" starshine.sql.bz2 make_empty_db_dump.sh
+git add starshine.sql.bz2 make_empty_db_dump.sh
+git commit -m "auto-generation de la base SSO"
