@@ -170,3 +170,6 @@ INSERT INTO quete_royaume (id_royaume, id_quete) VALUES (12, 105);
 -- Monstres tutoriels
 INSERT INTO map_monstre (type, x, y, hp, mort_naturelle) VALUES (208, 242, 138, 50, UNIX_TIMESTAMP() + 200000000);
 INSERT INTO map_monstre (type, x, y, hp, mort_naturelle) VALUES (209, 242, 156, 40, UNIX_TIMESTAMP() + 200000000);
+
+-- Propriété des cases de ville (basé sur les teleports)
+update map m, (select r.id, t.posx x, t.posy y from teleport t, royaume r where r.race = t.race) o set m.royaume = o.id where  (m.x = o.x and m.y = o.y) or (m.x = o.x - 1 and m.y = o.y) or (m.x = o.x + 1 and m.y = o.y) or (m.x = o.x and m.y = o.y - 1) or (m.x = o.x - 1 and m.y = o.y - 1) or (m.x = o.x + 1 and m.y = o.y - 1);
