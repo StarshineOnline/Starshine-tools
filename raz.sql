@@ -12,6 +12,7 @@ TRUNCATE TABLE bataille_groupe_repere;
 TRUNCATE TABLE bataille_repere;
 TRUNCATE TABLE bourse_royaume;
 TRUNCATE TABLE bourse_royaume;
+TRUNCATE TABLE buff;
 TRUNCATE TABLE buff_batiment;
 TRUNCATE TABLE buff_monstre;
 TRUNCATE TABLE candidat;
