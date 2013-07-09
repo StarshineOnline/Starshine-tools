@@ -16,8 +16,8 @@ diff -u /tmp/authreg_mysql.c.orig c2s/authreg_mysql.c
 +  char sql[2048] = {};
 +  const char* sqlp = &(sql[0]);
 +
-+  sprintf(sql, "select password from perso where replace(nom, ' ', '_') = '%s' and password = MD5('%s') and statut = 'actif' union all select password from jabber_admin where replace(nom, ' ', '_') = '%s' and password = MD5('%s')",
-+	  username, password, username, password);
++  snprintf(sql, 2047, "select password from perso where replace(nom, ' ', '_') = '%s' and password = MD5('%s') and statut = 'actif' union all select password from jabber_admin where replace(nom, ' ', '_') = '%s' and password = MD5('%s') union all select mdp_jabber from joueur where replace(login, ' ', '_') = '%s' and mdp_jabber = MD5('%s') and droits & 64 = 64",
++	  username, password, username, password, username, password);
 +
 +  //log_write(ar->c2s->log, LOG_ERR, "_ar_mysql_check_password: %s", sql);
 +
