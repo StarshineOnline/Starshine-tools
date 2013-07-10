@@ -16,8 +16,8 @@ diff -u /tmp/authreg_mysql.c.orig c2s/authreg_mysql.c
 +  char sql[2048] = {};
 +  const char* sqlp = &(sql[0]);
 +
-+  snprintf(sql, 2047, "select mdp from perso as p left join joueur as j on j.id = p.id_joueur where (login = '%s' or (replace(nom, ' ', '_') = '%s' and statut = 'actif')) and droits & 64 = 64 and mdp = SHA1(CONCAT(login, '!$',MD5('%s')))",
-+	  username, password, username, password, username, password);
++  snprintf(sql, 2047, "select 1 from perso as p left join joueur as j on j.id = p.id_joueur where (login = '%s' or (replace(nom, ' ', '_') = '%s' and statut = 'actif')) and droits & 64 = 64 and mdp = SHA1(CONCAT(login, '!$', MD5('%s')))",
++	  username, username, password);
 +
 +  //log_write(ar->c2s->log, LOG_ERR, "_ar_mysql_check_password: %s", sql);
 +
