@@ -100,8 +100,8 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
 +		log_debug(NAME, "[%s] Enter in SSO_HACK for %s -> %s",
 +							FZONE, jid_full(user), room->name);
 +		
-+		n = snprintf(query, sizeof(query) - 1, "select statut from jabber_admin "
-+								 "where replace(nom, ' ', '_') = '%s'", user->user);
++		n = snprintf(query, sizeof(query) - 1, "select droits from joueur "
++								 "where login = '%s' and droits & 32 = 32", user->user);
 +		
 +		log_debug(NAME, "[%s] query is {%s}, n is %d",
 +							FZONE, query, n);
@@ -116,7 +116,7 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
    if(g_hash_table_lookup(room->admin, ujid) != NULL )
      return 1;
    else if(g_hash_table_lookup(room->admin, user->server) != NULL )
-@@ -232,6 +253,30 @@
+@@ -232,6 +253,31 @@
      return 2;
    }
  
@@ -131,8 +131,9 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
 +    /* Is king of the current race */
 +    n = snprintf(query, sizeof(query) - 1, "select id from perso "
 +		 "where replace(nom, ' ', '_') = '%s' and "
-+		 "race = '%s' and rang_royaume = 6",
-+		 user->user, room->name);
++		 "race = '%s' and rang_royaume = 6 union select id from joueur "
++    "where login = '%s'and droits & 34 = 2",
++		 user->user, room->name, user->user);
 +    
 +    log_debug(NAME, "[%s] query is {%s}, n is %d",
 +	      FZONE, query, n);
@@ -147,7 +148,7 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
    if(g_hash_table_lookup(room->moderator, jid_full(user)) != NULL )
    {
      log_debug(NAME, "[%s] Is Moderator? >%s< - Moderator", FZONE, jid_full(user));
-@@ -295,6 +340,61 @@
+@@ -295,6 +340,75 @@
      return 1;
    }
  
@@ -175,8 +176,8 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
 +    
 +    if (!strcmp(room->name, "admin")) {
 +      // Cas du chan des admins/modo
-+      n = snprintf(query, sizeof(query) - 1, "select statut from jabber_admin "
-+		   "where replace(nom, ' ', '_') = '%s'", user->user);
++      n = snprintf(query, sizeof(query) - 1, "select statut from joueur "
++		   "where login = '%s' and droits & 32 = 32", user->user);
 +      
 +      log_debug(NAME, "[%s] query is {%s}, n is %d",
 +		FZONE, query, n);
@@ -186,6 +187,20 @@ diff -r -u jabberd2-muc-0.8.0/src/utils.c jabberd2-muc-0.8.0.sso/src/utils.c
 +	return 1;
 +      }
 +    }
++
++   if (!strstr (room->name, "groupe_")) {
++     // Cas des chans de groupe
++     n = snprintf(query, sizeof(query) - 1, "select id from perso "
++ 		 "where groupe = '%s' and replace(nom, ' ', '_') = '%s'",
++ 		 room->name+7, user->user);
++
++     log_debug(NAME, "[%s] query is {%s}, n is %d",
++ 	      FZONE, query, n);
++
++     if (n < sizeof(query) && query_ok(room->master->sql, query)) {
++       log_debug(NAME, "[%s] Is `%s`? >%s< - Yes", room->name, FZONE, jid_full(user));
++       return 1;
++   }
 +    
 +    // Ne devrait pas arriver
 +    if (!strcmp(room->name, "sso")) return 1;
