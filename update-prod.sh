@@ -27,7 +27,7 @@ cd $REPO
 git fetch origin '+refs/heads/*:refs/heads/*' || exit 1
 git reset --soft master || exit 1
 git archive $target | tar -x -C $PROD
-git log | head -1 | cut -d\  -f2 > $PROD/version.txt
+git log $target | head -1 | cut -d\  -f2 > $PROD/version.txt
 chmod g+w $PROD/arenes/ $PROD/arenes/admin/
 
 cd $PROD/sql
