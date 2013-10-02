@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ## Get connect info
 pushd ../trunk
@@ -44,11 +44,11 @@ cat >> starshine.sql <<EOF
 --
 
 -- Generation de la map (vide)
-insert into \`map\` select * from \`map_vide\`;
-insert into \`map_event\` select * from \`map_event_vide\`;
+insert into map select * from \`map_vide\`;
+insert into map_event select * from \`map_event_vide\`;
 
 -- RAZ des royaumes
-update \`royaume\` set ministre_economie = 0, ministre_militaire = 0, capitale_hp = 30000, fin_raz_capitale = 0, bourg = 0, pierre = 10000, bois = 10000, eau = 10000, sable = 10000, charbon = 10000, essence = 10000, food = 10000, alchimie = 0 ;
+update royaume set ministre_economie = 0, ministre_militaire = 0, capitale_hp = 30000, fin_raz_capitale = 0, bourg = 0, pierre = 10000, bois = 10000, eau = 10000, sable = 10000, charbon = 10000, essence = 10000, food = 10000, alchimie = 0 ;
 
 -- Initialisation des constructions des villes
 insert into construction_ville select null, royaume.id, minref.id_batiment, 'actif', 0, hp, 0 from royaume, (select min(id) as id_batiment, nom, cout, entretien, type, level, hp from batiment_ville group by type) minref ;
